@@ -106,11 +106,54 @@ def build_subject_dataset(
     subject_ids = np.full(X.shape[0], subject)
 
     return X, y, subject_ids
+def build_full_dataset(
+    subjects: list[str] | None = None,
+    data_dir: Path = DATA_DIR,
+    filter_config: FilterConfig = FilterConfig(),
+    epoch_config: EpochConfig = EpochConfig(),
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Build (X, y, subject_ids) across ALL subjects, concatenated into
+    one dataset. Both MHA and Bi-LSTM should load from the saved
+    output of this rather than re-running segmentation themselves.
+    """
+    if subjects is None:
+        subjects = [f"Subject{i:02d}" for i in range(36)]  # Subject00..Subject35
+
+    X_all, y_all, ids_all = [], [], []
+
+    for subject in subjects:
+        try:
+            X, y, subject_ids = build_subject_dataset(
+                subject, data_dir=data_dir,
+                filter_config=filter_config, epoch_config=epoch_config,
+            )
+        except FileNotFoundError as e:
+            print(f"Skipping {subject}: {e}")
+            continue
+
+        X_all.append(X)
+        y_all.append(y)
+        ids_all.append(subject_ids)
+
+        print(f"{subject}: {X.shape[0]} epochs, labels {np.bincount(y)}")
+
+    X_all = np.concatenate(X_all, axis=0)
+    y_all = np.concatenate(y_all, axis=0)
+    ids_all = np.concatenate(ids_all, axis=0)
+
+    return X_all, y_all, ids_all
 
 
 if __name__ == "__main__":
-    # Quick manual check for one subject
-    X, y, subject_ids = build_subject_dataset("Subject00")
-    print(f"X shape: {X.shape}")   # (n_epochs, n_channels, n_samples_per_epoch)
-    print(f"y shape: {y.shape}, label counts: {np.bincount(y)}")
-    print(f"subject_ids: {np.unique(subject_ids)}")
+    OUT_PATH = Path("data/processed/eeg_epochs.npz")
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    X, y, subject_ids = build_full_dataset()
+
+    print(f"\nFinal X shape: {X.shape}")
+    print(f"Final y shape: {y.shape}, label counts: {np.bincount(y)}")
+    print(f"Unique subjects: {len(np.unique(subject_ids))}")
+
+    np.savez(OUT_PATH, X=X, y=y, subject_ids=subject_ids)
+    print(f"Saved combined dataset to {OUT_PATH}")

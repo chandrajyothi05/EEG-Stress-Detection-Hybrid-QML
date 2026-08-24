@@ -49,10 +49,13 @@ class FilterConfig:
 def select_eeg_channels(raw: mne.io.Raw) -> mne.io.Raw:
     """
     Keep only the 19 scalp EEG channels; drop the reference channel
-    (A2-A1) and ECG. Modifies and returns raw (MNE's pick is in-place).
+    (A2-A1) and ECG by name, rather than relying on MNE's channel-type
+    detection (which is unreliable for this EDF header — all channels
+    can come back tagged as 'eeg' regardless of type).
     """
     raw = raw.copy()
-    raw.pick(picks="eeg")  # MNE identifies EEG-typed channels automatically
+    drop_chs = [ch for ch in ("EEG A2-A1", "ECG ECG") if ch in raw.ch_names]
+    raw.drop_channels(drop_chs)
     return raw
 
 

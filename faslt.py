@@ -27,6 +27,7 @@ import time
 import sys
 from pathlib import Path
 import numpy as np
+from scipy.signal import fftconvolve
 from multiprocessing import Pool, cpu_count
 
 # Allow Python to find faslt.py in the project root

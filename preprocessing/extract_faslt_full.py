@@ -1,4 +1,11 @@
 # extract_faslt_full.py
+# preprocessing/extract_faslt_full.py
+
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import time
 import sys
@@ -6,7 +13,6 @@ from pathlib import Path
 import numpy as np
 from multiprocessing import Pool, cpu_count
 
-# Find faslt.py in the project root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
@@ -16,7 +22,8 @@ INPUT_PATH = "data/processed/eeg_denoised.npy"
 OUTPUT_PATH = "data/processed/faslt_features.npy"
 fs = 500.0
 freqs = np.linspace(1, 40, 40)
-N_WORKERS = max(cpu_count() - 1, 1)
+N_WORKERS = max(cpu_count() - 2, 1)
+
 
 def process_epoch(args):
     idx, epoch = args

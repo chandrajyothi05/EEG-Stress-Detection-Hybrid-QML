@@ -1,8 +1,15 @@
 # extract_faslt_full.py
 
 import time
+import sys
+from pathlib import Path
 import numpy as np
 from multiprocessing import Pool, cpu_count
+
+# Find faslt.py in the project root
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(PROJECT_ROOT))
+
 from faslt import faslt_multichannel
 
 INPUT_PATH = "data/processed/eeg_denoised.npy"
@@ -22,7 +29,7 @@ if __name__ == "__main__":
     n_freqs = len(freqs)
 
     output = np.lib.format.open_memmap(
-        OUTPUT_PATH, mode="w+", dtype=np.float64,
+        OUTPUT_PATH, mode="w+", dtype=np.float32,
         shape=(n_epochs, n_channels, n_freqs, n_samples)
     )
 

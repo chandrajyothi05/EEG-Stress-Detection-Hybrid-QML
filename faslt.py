@@ -23,8 +23,14 @@ Usage
     )
     # L.shape == (len(freqs), len(x))  -> this is your time-frequency "image"
 """
+import time
+import sys
+from pathlib import Path
 import numpy as np
-from scipy.signal import fftconvolve
+from multiprocessing import Pool, cpu_count
+
+# Allow Python to find faslt.py in the project root
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 _kernel_cache = {}
 # ---------------------------------------------------------------------------

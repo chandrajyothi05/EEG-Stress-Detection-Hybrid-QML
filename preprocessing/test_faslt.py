@@ -53,3 +53,5 @@ print("Max:", tensor.max())
 print("Mean:", tensor.mean())
 print("NaN:", np.isnan(tensor).any())
 print("Inf:", np.isinf(tensor).any())
+import faslt
+print("Cache entries after one epoch:", len(faslt._kernel_cache))

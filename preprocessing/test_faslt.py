@@ -2,8 +2,14 @@
 
 import time
 import numpy as np
-from faslt import faslt_multichannel
+import time
+import sys
+from pathlib import Path
 
+# Allow Python to find faslt.py in the project root
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+from faslt import faslt_multichannel
 # --- Load already-denoised EEG (memory-mapped, not loaded fully into RAM) ---
 denoised = np.load(
     "data/processed/eeg_denoised.npy",

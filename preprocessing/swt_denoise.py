@@ -60,6 +60,24 @@ if __name__ == "__main__":
 
     config = DenoiseConfig()
 
-    # Smoke test on 5 epochs first
-    sample = np.stack([swt_denoise_epoch(X[i], config) for i in range(5)])
-    print(f"Denoised sample shape: {sample.shape} (expect (5, 19, 1000))")
+    n_epochs = X.shape[0]
+    batch_size = 200
+
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    denoised_memmap = np.lib.format.open_memmap(
+        OUT_PATH, mode="w+", dtype=np.float32, shape=X.shape
+    )
+
+    for start in range(0, n_epochs, batch_size):
+        end = min(start + batch_size, n_epochs)
+        for i in range(start, end):
+            denoised_memmap[i] = swt_denoise_epoch(X[i], config)
+        print(f"Denoised epochs {start}-{end-1} / {n_epochs}")
+
+    denoised_memmap.flush()
+    print(f"Saved denoised data to {OUT_PATH}")
+
+    np.savez(META_OUT_PATH, y=y, subject_ids=subject_ids)
+    print(f"Saved metadata to {META_OUT_PATH}")
+
+    print(f"Final denoised shape: {denoised_memmap.shape}")

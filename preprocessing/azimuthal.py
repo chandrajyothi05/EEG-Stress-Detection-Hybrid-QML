@@ -1,4 +1,4 @@
-preprocessing/azimuthal.py
+"""preprocessing/azimuthal.py
 
 Azimuthal Projection branch, following Mane & Shinde (StressNet, 2023):
 theta/alpha/beta band power per electrode -> azimuthal equidistant

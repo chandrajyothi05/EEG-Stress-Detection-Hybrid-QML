@@ -1,14 +1,3 @@
-preprocessing/azimuthal.py
-
-Azimuthal Projection branch, following Mane & Shinde (StressNet, 2023):
-theta/alpha/beta band power per electrode -> azimuthal equidistant
-projection -> interpolated 2D grid per band -> stacked as a 3-channel
-"RGB" image -> resized to 224x224 for pretrained EfficientNet-B0.
-
-Requires exact channel names (see module-level CH_NAMES) matching the
-column order used in eeg_denoised.npy.
-"""
-
 from pathlib import Path
 import numpy as np
 import mne
@@ -19,7 +8,6 @@ from scipy.interpolate import griddata
 # !! MUST match the exact channel order in eeg_denoised.npy - fill this in
 # after running the ch_names check above.
 # ---------------------------------------------------------------------------
-python
 # Raw channel names as they appear in eeg_denoised.npy (with "EEG " prefix
 # and old-style T3/T4/T5/T6 naming)
 RAW_CH_NAMES = [

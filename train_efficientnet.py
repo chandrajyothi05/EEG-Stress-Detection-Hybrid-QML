@@ -111,7 +111,7 @@ if __name__ == "__main__":
     class_weights = compute_class_weights(train_ds).to(DEVICE)
     print(f"Class weights: {class_weights}")
 
-    model = EfficientNetBranch(freeze_backbone=False).to(DEVICE)
+    model = EfficientNetBranch(freeze_backbone=True).to(DEVICE)
     criterion = FocalLoss(alpha=class_weights, gamma=2.0)  # starting directly with what worked for ConvMixer
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-2)  # lower lr: pretrained backbone
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", patience=3, factor=0.5)

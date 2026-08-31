@@ -2,12 +2,19 @@
 train_efficientnet.py
 
 Training loop for the Azimuthal Projection -> EfficientNet-B0 branch.
-Mirrors train_convmixer.py's structure and lessons learned:
-  - class weights / focal loss for the ~2.96:1 imbalance
-  - subject-level majority-vote evaluation (not raw epoch accuracy)
-  - num_workers=0 pattern isn't needed here since AzimuthalDataset loads
-    the full array into RAM upfront (no memmap), but keeping it low is
-    still safer on Windows.
+
+Run history so far:
+  - freeze_backbone=True, uniform lr=1e-4 on model.parameters() -> full
+    fine-tune, overfit (train 66%->91%, val degraded, best at epoch 1)
+  - freeze_backbone=True (whole backbone frozen), lr=1e-3 -> underfit
+    (subject-level 10/14 = 71.4%, errors skewed to missing stress)
+
+THIS VERSION: partial unfreeze. Freeze the whole backbone, then re-enable
+gradients on the last MBConv stage (features[-2]) and the final 1x1 conv
+(features[-1]) -- features[-1] alone is just a pointwise conv, so it's
+unfrozen together with the last real MBConv stage for it to mean anything.
+Two LR groups: the unfrozen backbone tail trains slower than the
+classifier head, since it still carries useful pretrained weights.
 """
 
 import numpy as np
@@ -42,6 +49,32 @@ def compute_class_weights(dataset: AzimuthalDataset) -> torch.Tensor:
     return torch.tensor(weights, dtype=torch.float32)
 
 
+def unfreeze_last_stage(model: EfficientNetBranch):
+    """model was constructed with freeze_backbone=True, so the whole
+    backbone starts frozen. Re-enable gradients on the last MBConv stage
+    (features[-2]) + final 1x1 conv (features[-1]); classifier head is
+    always trainable regardless."""
+    for param in model.backbone.features[-2].parameters():
+        param.requires_grad = True
+    for param in model.backbone.features[-1].parameters():
+        param.requires_grad = True
+    for param in model.classifier.parameters():
+        param.requires_grad = True
+    return model
+
+
+def get_param_groups(model: EfficientNetBranch):
+    backbone_tail_params = (
+        list(model.backbone.features[-2].parameters())
+        + list(model.backbone.features[-1].parameters())
+    )
+    head_params = list(model.classifier.parameters())
+    return [
+        {"params": backbone_tail_params, "lr": 1e-4},
+        {"params": head_params, "lr": 1e-3},
+    ]
+
+
 def run_epoch(model, loader, criterion, optimizer=None):
     is_train = optimizer is not None
     model.train() if is_train else model.eval()
@@ -67,7 +100,7 @@ def run_epoch(model, loader, criterion, optimizer=None):
 
 def subject_level_eval(model, dataset: AzimuthalDataset):
     """Majority-vote accuracy grouped by (subject_id, true_label) -- same
-    diagnostic that revealed ConvMixer's rest-bias earlier."""
+    diagnostic used for ConvMixer and the previous two EfficientNet runs."""
     model.eval()
     loader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=0)
 
@@ -112,8 +145,14 @@ if __name__ == "__main__":
     print(f"Class weights: {class_weights}")
 
     model = EfficientNetBranch(freeze_backbone=True).to(DEVICE)
-    criterion = FocalLoss(alpha=class_weights, gamma=2.0)  # starting directly with what worked for ConvMixer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-2)  # lower lr: pretrained backbone
+    model = unfreeze_last_stage(model)
+
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total = sum(p.numel() for p in model.parameters())
+    print(f"Trainable params: {trainable:,} / {total:,}")
+
+    criterion = FocalLoss(alpha=class_weights, gamma=2.0)
+    optimizer = torch.optim.AdamW(get_param_groups(model), weight_decay=1e-2)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", patience=3, factor=0.5)
 
     n_epochs = 20
@@ -133,7 +172,7 @@ if __name__ == "__main__":
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             patience_counter = 0
-            torch.save(model.state_dict(), "efficientnet_best.pt")
+            torch.save(model.state_dict(), "efficientnet_partial_unfreeze_best.pt")
             print(f"  -> saved new best model (val_acc={val_acc:.4f})")
         else:
             patience_counter += 1
@@ -143,5 +182,5 @@ if __name__ == "__main__":
 
     print(f"\nTraining complete. Best val_acc: {best_val_acc:.4f}")
     print("\nRunning subject-level evaluation on best checkpoint...")
-    model.load_state_dict(torch.load("efficientnet_best.pt"))
+    model.load_state_dict(torch.load("efficientnet_partial_unfreeze_best.pt"))
     subject_level_eval(model, val_ds)
